@@ -1,0 +1,19 @@
+profiles:
+  fullstack-feature:
+    - global/coding-standard.md
+    - global/git-standard.md
+    - workflow/feature-flow.md
+    - review/review-standard.md
+
+  qa-fix:
+    - global/coding-standard.md
+    - workflow/qa-fix-flow.md
+    - review/bug-root-cause.md
+
+  frontend:
+    - global/coding-standard.md
+    - frontend/react-standard.md
+
+  backend:
+    - global/coding-standard.md
+    - backend/api-standard.md

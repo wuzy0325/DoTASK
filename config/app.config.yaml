@@ -1,0 +1,39 @@
+workspaceRoot: ~/ai-task-workbench/tasks
+
+agents:
+  claude:
+    command: claude
+    args: []
+  codex:
+    command: codex
+    args: []
+
+terminal:
+  backend: tmux
+  shell: /bin/bash
+
+concurrency:
+  maxAutoPipelines: 3
+  maxClaudeAgents: 3
+  maxCodexAgents: 3
+  maxTestRunners: 2
+
+git:
+  defaultBaseBranch: main
+  autoPush: true
+  commitMessageTemplate:
+    feature: "feat(task-{taskId}): {title}"
+    fix: "fix(task-{taskId}): address QA feedback"
+
+skills:
+  root: ~/ai-task-workbench/skills
+  defaultProfile: fullstack-feature
+
+checks:
+  autoDetect: true
+  defaultCommands:
+    node:
+      install: "pnpm install"
+      lint: "pnpm lint"
+      test: "pnpm test"
+      build: "pnpm build"

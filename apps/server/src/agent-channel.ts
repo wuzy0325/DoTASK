@@ -40,7 +40,29 @@ export function parseSubmitAgentMessageInput(input: unknown): SubmitAgentMessage
 }
 
 export class AgentChannelService {
+  private readonly bugContexts = new Map<string, string>();
+
   constructor(private readonly db: DatabaseSync) {}
+
+  setBugContext(taskId: string, bugEntries: string): void {
+    this.bugContexts.set(taskId, bugEntries);
+  }
+
+  clearBugContext(taskId: string): void {
+    this.bugContexts.delete(taskId);
+  }
+
+  startQaFixRound(taskId: string, codexPrompt: string): AgentMessage {
+    const message = this.addMessage({
+      taskId,
+      fromAgent: "system",
+      toAgent: "codex",
+      type: "review_request",
+      content: codexPrompt
+    });
+    this.upsertWorkflow(taskId, "waiting_codex_review", message.id);
+    return message;
+  }
 
   getWorkflow(taskId: string): AgentWorkflowSnapshot {
     const row = this.db
@@ -158,12 +180,16 @@ export class AgentChannelService {
     }
 
     if (state === "waiting_claude_fix" && input.fromAgent === "claude" && input.type === "fix_result") {
+      const bugContext = this.bugContexts.get(taskId);
+      const content = bugContext
+        ? `Claude reports the fix is complete.\n\nClaude fix summary:\n${input.content}\n\n---\n\nRe-review with the same QA bug entries:\n\n${bugContext}`
+        : codexReReviewPrompt(input.content);
       const message = this.addMessage({
         taskId,
         fromAgent: "system",
         toAgent: "codex",
         type: "review_request",
-        content: codexReReviewPrompt(input.content)
+        content
       });
       return { state: "waiting_codex_rereview", message };
     }

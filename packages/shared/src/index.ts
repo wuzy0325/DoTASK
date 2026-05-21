@@ -100,6 +100,78 @@ export interface UpdateTaskInput {
   workspacePath?: string;
 }
 
+export const projectMainPhases = ["development", "bug_fix"] as const;
+
+export type ProjectMainPhase = (typeof projectMainPhases)[number];
+
+export const projectDevelopmentStatuses = [
+  "project_created",
+  "development_running",
+  "dev_submitted",
+  "review_running",
+  "fixing_review",
+  "resubmitted",
+  "rereview_running",
+  "review_done",
+  "packaging",
+  "package_done",
+  "web_submitted"
+] as const;
+
+export type ProjectDevelopmentStatus = (typeof projectDevelopmentStatuses)[number];
+
+export interface ProjectFlowStep {
+  key: ProjectDevelopmentStatus;
+  label: string;
+  status: "pending" | "active" | "done";
+  updatedAt?: string;
+}
+
+export interface ProjectFlowState {
+  status: string;
+  detail: string;
+  updatedAt: string;
+}
+
+export interface ProjectState {
+  projectId: string;
+  rootPath: string;
+  mainPhase: ProjectMainPhase;
+  development: ProjectFlowState;
+  bugFix: ProjectFlowState;
+  developmentFlow: ProjectFlowStep[];
+  updatedAt: string;
+}
+
+export interface ProjectSummary {
+  id: string;
+  name: string;
+  rootPath: string;
+  state: ProjectState;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RegisterProjectInput {
+  name?: string;
+  rootPath: string;
+}
+
+export const projectDevelopmentActions = [
+  "start_development",
+  "submit_development",
+  "start_review",
+  "request_fix",
+  "resubmit_fix",
+  "start_rereview",
+  "approve_review",
+  "start_packaging",
+  "confirm_package",
+  "submit_web"
+] as const;
+
+export type ProjectDevelopmentAction = (typeof projectDevelopmentActions)[number];
+
 export const agentRoles = ["claude", "codex", "system"] as const;
 
 export type AgentRole = (typeof agentRoles)[number];

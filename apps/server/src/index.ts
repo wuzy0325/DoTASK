@@ -8,7 +8,9 @@ import { ensureRuntimeDirectories, loadAppConfig, resolveRuntimePaths } from "./
 import { openDatabase } from "./db.js";
 import { parseCreateTaskInput, parseUpdateTaskInput, TaskRepository } from "./tasks.js";
 import { TerminalService } from "./terminal.js";
-import { WorkspaceManager } from "./workspace.js";
+import { buildStartMindProjectPrompt, WorkspaceManager } from "./workspace.js";
+import { scanBugFiles, generateQaFixCodexPrompt } from "./qa-fix-flow.js";
+import { parseDevelopmentAction, parseRegisterProjectInput, ProjectRepository } from "./projects.js";
 
 const server = Fastify({ logger: true });
 
@@ -17,6 +19,7 @@ const runtimePaths = resolveRuntimePaths(config);
 await ensureRuntimeDirectories(runtimePaths);
 const database = openDatabase(runtimePaths);
 const tasks = new TaskRepository(database.db);
+const projects = new ProjectRepository(database.db);
 const agentChannel = new AgentChannelService(database.db);
 const agentTerminalEvents = new AgentTerminalEventRepository(database.db);
 const terminals = new TerminalService(database.db, config);
@@ -45,6 +48,34 @@ server.get("/health", async () => ({
 }));
 
 server.get("/api/tasks", async () => tasks.list());
+
+server.get("/api/projects", async () => projects.list());
+
+server.post("/api/projects", async (request, reply) => {
+  const input = parseRegisterProjectInput(request.body);
+  const project = await projects.register(input);
+
+  return reply.code(201).send(project);
+});
+
+server.get<{ Params: { id: string } }>("/api/projects/:id", async (request, reply) => {
+  const project = await projects.get(request.params.id);
+  if (!project) {
+    return reply.code(404).send({ error: "Project not found" });
+  }
+
+  return project;
+});
+
+server.post<{ Params: { id: string } }>("/api/projects/:id/development/advance", async (request, reply) => {
+  const action = parseDevelopmentAction(request.body);
+  const project = await projects.advanceDevelopment(request.params.id, action);
+  if (!project) {
+    return reply.code(404).send({ error: "Project not found" });
+  }
+
+  return project;
+});
 
 server.post("/api/tasks", async (request, reply) => {
   const input = parseCreateTaskInput(request.body);
@@ -87,6 +118,37 @@ server.post<{ Params: { id: string } }>("/api/tasks/:id/prepare-workspace", asyn
   return reply.code(201).send({
     task: updatedTask,
     workspace
+  });
+});
+
+server.post<{ Params: { id: string } }>("/api/tasks/:id/start-mind-project", async (request, reply) => {
+  const task = tasks.get(request.params.id);
+  if (!task) {
+    return reply.code(404).send({ error: "Task not found" });
+  }
+
+  const workspace = await workspaceManager.prepareTaskWorkspace(task);
+  const updatedTask = tasks.update(request.params.id, {
+    workspacePath: workspace.workspacePath,
+    status: "DEV_RUNNING"
+  });
+  if (!updatedTask) {
+    return reply.code(404).send({ error: "Task not found" });
+  }
+
+  const session = await terminals.ensureTaskSession(request.params.id, workspace.workspacePath);
+  if (session.status !== "ready") {
+    return reply.code(500).send({ task: updatedTask, workspace, terminalSession: session });
+  }
+
+  const prompt = buildStartMindProjectPrompt(updatedTask);
+  await terminals.sendMessage(request.params.id, "claude", prompt);
+
+  return reply.code(201).send({
+    task: updatedTask,
+    workspace,
+    terminalSession: session,
+    promptPath: workspace.startMindProjectPromptPath
   });
 });
 
@@ -248,6 +310,34 @@ server.post<{ Params: { id: string } }>("/api/tasks/:id/agent-runtime/tick", asy
   }
 
   return agentRuntime.tick(request.params.id);
+});
+
+server.post<{ Params: { id: string } }>("/api/tasks/:id/qa-fix/start", async (request, reply) => {
+  const task = tasks.get(request.params.id);
+  if (!task) {
+    return reply.code(404).send({ error: "Task not found" });
+  }
+
+  const workspace = task.workspacePath;
+  if (!workspace) {
+    return reply.code(400).send({ error: "Task workspace not prepared. Call prepare-workspace first." });
+  }
+
+  const bugEntries = await scanBugFiles(workspace);
+  if (bugEntries.length === 0) {
+    return reply.code(400).send({ error: `No bug files found in ${workspace}/.tmp/bug/` });
+  }
+
+  const codexPrompt = generateQaFixCodexPrompt(bugEntries);
+  agentChannel.setBugContext(request.params.id, codexPrompt);
+  const message = agentChannel.startQaFixRound(request.params.id, codexPrompt);
+
+  return reply.code(201).send({
+    bugCount: bugEntries.length,
+    bugFiles: bugEntries.map((b) => b.fileName),
+    workflow: agentChannel.getWorkflow(request.params.id),
+    message
+  });
 });
 
 const port = Number(process.env.PORT ?? 3333);

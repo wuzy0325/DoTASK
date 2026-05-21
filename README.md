@@ -1,17 +1,31 @@
 # AI Task Workbench
 
-Local-first Ubuntu workbench for manually imported development tasks and QA fixes.
+在 Ubuntu 上管理 Claude + Codex 开发流程的本地工具。
 
-The MVP focuses on local task orchestration: one Git repository per task, per-task tmux sessions, Claude Code development, Codex review, tests, Git commit/push, and final submission artifacts.
+## 安装（Ubuntu 一行命令）
 
-## Development
+```bash
+bash install.sh
+```
+
+## 手动安装
+
+需要：Node.js 22、pnpm、tmux、git、claude CLI、codex CLI。
 
 ```bash
 pnpm install
 pnpm dev
 ```
 
-## Plans
+启动后访问 `http://127.0.0.1:5173`。
 
-- `docs/plans/2026-05-20-ai-task-workbench-design.md`
-- `docs/plans/2026-05-20-ai-task-workbench-mvp-plan.md`
+## 项目结构
+
+| 目录 | 说明 |
+|------|------|
+| `apps/web/` | 前端页面 (React + Vite) |
+| `apps/server/` | 后端 API (Fastify) |
+| `packages/shared/` | 共享类型 |
+| `packages/core/` | 核心逻辑 |
+| `templates/prompts/` | skill prompt 模板 |
+| `.tmp/` | 项目根目录下的状态文件 |

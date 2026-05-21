@@ -67,7 +67,10 @@ export class TerminalService {
       throw new Error("Terminal session is not ready");
     }
 
-    await runTmux(["send-keys", "-t", `${session.sessionName}:${window}`, content, "Enter"]);
+    const bufferName = safeSessionName(`${session.sessionName}-${window}-input`);
+    await runTmux(["set-buffer", "-b", bufferName, content]);
+    await runTmux(["paste-buffer", "-b", bufferName, "-t", `${session.sessionName}:${window}`]);
+    await runTmux(["send-keys", "-t", `${session.sessionName}:${window}`, "Enter"]);
   }
 
   async captureWindow(taskId: string, window: TerminalWindow): Promise<string> {

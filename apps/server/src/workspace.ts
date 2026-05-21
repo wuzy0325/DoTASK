@@ -9,6 +9,7 @@ export interface PreparedWorkspace {
   metaPath: string;
   taskJsonPath: string;
   requirementPath: string;
+  startMindProjectPromptPath: string;
 }
 
 export class WorkspaceManager {
@@ -19,17 +20,36 @@ export class WorkspaceManager {
     const metaPath = resolve(workspacePath, ".task-meta");
     const taskJsonPath = resolve(metaPath, "task.json");
     const requirementPath = resolve(metaPath, "requirement.md");
+    const startMindProjectPromptPath = resolve(metaPath, "start-mind-project.md");
+    const startMindProjectPrompt = buildStartMindProjectPrompt(task);
 
     await mkdir(workspacePath, { recursive: true });
     await mkdir(metaPath, { recursive: true });
     await writeFile(taskJsonPath, `${JSON.stringify(task, null, 2)}\n`, "utf8");
     await writeFile(requirementPath, task.requirementMarkdown, "utf8");
+    await writeFile(startMindProjectPromptPath, startMindProjectPrompt, "utf8");
 
     return {
       workspacePath,
       metaPath,
       taskJsonPath,
-      requirementPath
+      requirementPath,
+      startMindProjectPromptPath
     };
   }
+}
+
+export function buildStartMindProjectPrompt(task: TaskDetail): string {
+  return `start mind project
+
+Project ID: ${task.id}
+Task title: ${task.title}
+Git address: ${task.repoUrl}
+Base branch: ${task.baseBranch}
+Task branch: ${task.branch}
+Skill profile: ${task.skillProfile}
+
+User prompt:
+${task.requirementMarkdown}
+`;
 }
